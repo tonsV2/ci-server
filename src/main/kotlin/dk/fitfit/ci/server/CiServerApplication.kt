@@ -21,4 +21,9 @@ class HookController {
     fun github(@RequestBody payload: Any) {
         println(payload.toString())
     }
+
+    @PostMapping("/bitbucket")
+    fun bitbucket(@RequestBody payload: Any) {
+        println(payload.toString())
+    }
 }
