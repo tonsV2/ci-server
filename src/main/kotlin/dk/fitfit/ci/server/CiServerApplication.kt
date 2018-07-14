@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
+import java.util.*
 import kotlin.concurrent.thread
 
 @SpringBootApplication
@@ -88,30 +89,20 @@ class BuildController {
 // TODO: Should be ProcessService and the build method should take a build object rather context
 // TODO: Run all of this in a thread
 class ProcessCiRequest {
-    fun build(buildContext: BuildContext): String {
-        var command: String
-        var output: String
-
+    fun build(buildContext: BuildContext) {
         // Create volume
-        val volume = "ci-server-data-some-random-postfix"
-        command = "docker volume create --name=$volume"
-        output = executeCommand(command)
-        println("Output: $output")
+        val volumePostfix = UUID.randomUUID().toString()
+        val volume = "ci-server-build-$volumePostfix"
+        executeCommand("docker volume create --name=$volume")
 
         // Clone repo
-        command = "docker run -t --rm -v $volume:/git alpine/git clone ${buildContext.repository}"
-        output = executeCommand(command)
-        println("Output: $output")
+        executeCommand("docker run -t --rm -v $volume:/git alpine/git clone ${buildContext.repository}")
 
         // Git reset
-        command = "docker run -t --rm -v $volume:/git -w /git/${buildContext.name} alpine/git reset --hard ${buildContext.commitId}"
-        output = executeCommand(command)
-        println("Output: $output")
+        executeCommand("docker run -t --rm -v $volume:/git -w /git/${buildContext.name} alpine/git reset --hard ${buildContext.commitId}")
 
 // TODO: if not .env and .env.dist or .env.sample or .env.example
-        command = "docker run -t --rm -v $volume:/src -w /src/${buildContext.name} alpine mv .env.dist .env"
-        output = executeCommand(command)
-        println("Output: $output")
+        executeCommand("docker run -t --rm -v $volume:/src -w /src/${buildContext.name} alpine mv .env.dist .env")
 
         // Run our image on it
         val image = "tons/dc-ci"
@@ -120,23 +111,16 @@ class ProcessCiRequest {
         val registryUser = "tons"
         val registryPass = "skummet"
         // TODO: Convert to docker compose...
-        command = "docker run --name dc-ci -i -e DEBUG_PORT=666 -e SERVICE=$service -e TAG=$tag -e REGISTRY_USER=$registryUser -e REGISTRY_PASS=$registryPass -v $volume:/src -w /src/${buildContext.name} -v /var/run/docker.sock:/var/run/docker.sock $image"
-        output = executeCommand(command, "/")
-        println("Output: $output")
+        val command = "docker run --rm --name dc-ci -i -e DEBUG_PORT=666 -e SERVICE=$service -e TAG=$tag -e REGISTRY_USER=$registryUser -e REGISTRY_PASS=$registryPass -v $volume:/src -w /src/${buildContext.name} -v /var/run/docker.sock:/var/run/docker.sock $image"
+        executeCommand(command)
 
         // Rm image
-        command = "docker rm dc-ci"
-        output = executeCommand(command)
-        println("Output: $output")
+        executeCommand("docker rm dc-ci")
 
         // Rm volume
-        command = "docker volume rm $volume"
-        output = executeCommand(command)
-        println("Output: $output")
+        executeCommand("docker volume rm $volume")
 
         // TODO: Record end of build
-
-        return output
         // TODO: Version 2.0
         // register builds... with environment variables
         // http basic auth... single user
@@ -145,9 +129,8 @@ class ProcessCiRequest {
     }
 }
 
-private fun executeCommand(command: String, directory: String = "/tmp"): String {
+private fun executeCommand(command: String, directory: String = "/tmp") {
     println("Command: $command")
-    val output = StringBuffer()
     try {
         val pb = ProcessBuilder(command.split(" "))
         pb.directory(File(directory))
@@ -159,12 +142,10 @@ private fun executeCommand(command: String, directory: String = "/tmp"): String 
 // TODO: Store build lines in a table with fk build... or somewhere else and concatenate into a blob and store that on the build
         var line = reader.readLine()
         while (line != null) {
-            output.append(line + "\n")
             line = reader.readLine()
+            println(line)
         }
     } catch (e: Exception) {
         e.printStackTrace()
     }
-    val toString = output.toString()
-    return toString
 }
