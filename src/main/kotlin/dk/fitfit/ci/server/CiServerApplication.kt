@@ -111,7 +111,15 @@ class ProcessCiRequest {
         val registryUser = "tons"
         val registryPass = "skummet"
         // TODO: Convert to docker compose...
-        val command = "docker run --name ci-server-worker-$volume --rm -t -e DEBUG_PORT=666 -e SERVICE=$service -e TAG=$tag -e REGISTRY_USER=$registryUser -e REGISTRY_PASS=$registryPass -v $volume:/src -w /src/${buildContext.name} -v /var/run/docker.sock:/var/run/docker.sock $image"
+        val command = """docker run --rm -t
+            | --name ci-server-worker-$volume
+            | -e SERVICE=$service
+            | -e TAG=$tag
+            | -e REGISTRY_USER=$registryUser
+            | -e REGISTRY_PASS=$registryPass
+            | -v $volume:/src
+            | -w /src/${buildContext.name}
+            | -v /var/run/docker.sock:/var/run/docker.sock $image""".trimMargin()
         executeCommand(command)
 
         // Rm volume
