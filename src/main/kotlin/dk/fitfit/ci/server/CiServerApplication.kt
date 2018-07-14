@@ -100,7 +100,12 @@ class ProcessCiRequest {
         // Run our image on it
         val image = "tons/dc-ci"
         val service = "release"
-        val tag = buildContext.ref.removePrefix("refs/heads/").replace("/", "_")
+        val tag: String
+        tag = if (buildContext.ref == "refs/heads/master") {
+            "latest"
+        } else {
+            buildContext.ref.removePrefix("refs/heads/").replace("/", "_")
+        }
         val registryUser = "tons"
         val registryPass = "skummet"
         // TODO: Convert to docker compose...
