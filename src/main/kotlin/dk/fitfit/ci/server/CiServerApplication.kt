@@ -139,8 +139,8 @@ private fun executeCommand(command: String, directory: String = "/tmp") {
 // TODO: Store build lines in a table with fk build... or somewhere else and concatenate into a blob and store that on the build
         var line = reader.readLine()
         while (line != null) {
-            line = reader.readLine()
             println(line)
+            line = reader.readLine()
         }
     } catch (e: Exception) {
         e.printStackTrace()
