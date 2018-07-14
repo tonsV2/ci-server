@@ -25,11 +25,6 @@ class HookController {
         val ref = payload["ref"].toString()
 
         val repository = payload["repository"]
-        var name = ""
-        if (repository is LinkedHashMap<*, *>) {
-            name = repository.get("name").toString()
-        }
-
         var cloneUrl = ""
         if (repository is LinkedHashMap<*, *>) {
             cloneUrl = repository.get("clone_url").toString()
@@ -44,7 +39,7 @@ class HookController {
         thread {
             // TODO: Create build... store timestamp and payload
             // Load context by... repo and branch? and associate with build
-            val buildContext = BuildContext(name, cloneUrl, id, ref)
+            val buildContext = BuildContext(cloneUrl, id, ref)
             val processor = ProcessCiRequest()
             processor.build(buildContext)
         }
@@ -64,7 +59,10 @@ class HookController {
 //What to build: Service
 //Tag...
 //artifact storage... user, pass, host
-class BuildContext(val name: String, val repository: String, val commitId: String, val ref: String)
+class BuildContext(val repository: String, val commitId: String, val ref: String) {
+    val branch: String
+        get() = ref.removePrefix("refs/heads/")
+}
 
 @RestController
 class BuildController {
@@ -92,7 +90,7 @@ class ProcessCiRequest {
         executeCommand("docker run --name ci-server-git-clone-$processId -t --rm -v $volume:/git alpine/git clone ${buildContext.repository} .")
 
         // Git branch checkout
-        executeCommand("docker run --name ci-server-git-clone-$processId -t --rm -v $volume:/git alpine/git checkout ${buildContext.ref.removePrefix("refs/heads/")}")
+        executeCommand("docker run --name ci-server-git-clone-$processId -t --rm -v $volume:/git alpine/git checkout ${buildContext.branch}")
 
         // Git reset
         executeCommand("docker run --name ci-server-git-reset-$processId -t --rm -v $volume:/git alpine/git reset --hard ${buildContext.commitId}")
@@ -105,8 +103,8 @@ class ProcessCiRequest {
         val service = "release"
         val tag: String
         tag = when {
-            buildContext.ref == "refs/heads/master" -> "latest"
-            else -> buildContext.ref.removePrefix("refs/heads/").replace("/", "_")
+            buildContext.branch == "master" -> "latest"
+            else -> buildContext.branch.replace("/", "_")
         }
         val registryUser = "tons"
         val registryPass = "skummet"
