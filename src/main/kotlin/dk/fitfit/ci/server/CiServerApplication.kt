@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
+import kotlin.concurrent.thread
 
 @SpringBootApplication
 class CiServerApplication
@@ -19,7 +20,7 @@ fun main(args: Array<String>) {
 @RequestMapping("/hooks")
 class HookController {
     @PostMapping("/github")
-    fun github(@RequestBody payload: LinkedHashMap<String, *>): String {
+    fun github(@RequestBody payload: LinkedHashMap<String, *>) {
         val repository = payload["repository"]
         var name = ""
         if (repository is LinkedHashMap<*, *>) {
@@ -46,11 +47,13 @@ class HookController {
             }
         }
 
-        // TODO: Load build context by... repo and branch?
-        val buildContext = BuildContext(name, cloneUrl, id)
-        val processor = ProcessCiRequest()
-        val output = processor.build(buildContext)
-        return output
+        thread {
+            // TODO: Create build... store timestamp and payload
+            // Load context by... repo and branch? and associate with build
+            val buildContext = BuildContext(name, cloneUrl, id)
+            val processor = ProcessCiRequest()
+            processor.build(buildContext)
+        }
     }
 
     @PostMapping("/bitbucket")
@@ -61,6 +64,12 @@ class HookController {
     }
 }
 
+// ** Build context...
+//source... git... user/pass... ssh
+//condition... any valid jsonpath? Could possible point to a branch
+//What to build: Service
+//Tag...
+//artifact storage... user, pass, host
 class BuildContext(val name: String, val repository: String, val commitId: String)
 
 @RestController
@@ -76,52 +85,56 @@ class BuildController {
     }
 }
 
-class ProcessCiRequest() {
+// TODO: Should be ProcessService and the build method should take a build object rather context
+// TODO: Run all of this in a thread
+class ProcessCiRequest {
     fun build(buildContext: BuildContext): String {
-        var command = ""
-        var output = ""
+        var command: String
+        var output: String
 
-        command = "rm -rf /tmp/${buildContext.name}"
-        output = executeCommand(command, "/tmp")
+        // Create volume
+        val volume = "ci-server-data-some-random-postfix"
+        command = "docker volume create --name=$volume"
+        output = executeCommand(command)
         println("Output: $output")
 
-        command = "git clone ${buildContext.repository}"
-        output = executeCommand(command, "/tmp")
+        // Clone repo
+        command = "docker run -t --rm -v $volume:/git alpine/git clone ${buildContext.repository}"
+        output = executeCommand(command)
         println("Output: $output")
 
-        command = "git reset --hard ${buildContext.commitId}"
-//        output = executeCommand(command, "/tmp/${buildContext.name}")
+        command = "docker run -t --rm -v $volume:/git -w /git/${buildContext.name} alpine/git reset --hard ${buildContext.commitId}"
+        output = executeCommand(command)
         println("Output: $output")
 
-        // TODO: if not .env and .env.dist or .env.sample or .env.example
-        command = "mv .env.dist .env"
-        output = executeCommand(command, "/tmp/${buildContext.name}")
+// TODO: if not .env and .env.dist or .env.sample or .env.example
+        command = "docker run -t --rm -v $volume:/src -w /src/${buildContext.name} alpine mv .env.dist .env"
+        output = executeCommand(command)
         println("Output: $output")
 
-        // TODO: Fetch image and pretty much the entire line from the build context
-        command = "docker run -i -v \"\$PWD\":/src -e ... tons/dc-ci"
-//        output = executeCommand(command, "/tmp/${buildContext.name}")
+        // Run our image on it
+        val image = "tons/dc-ci"
+        val service = "release"
+        val tag = "ci-server-3"
+        val registryUser = "tons"
+        val registryPass = "skummet"
+        command = "docker run --name dc-ci -i -e DEBUG_PORT=666 -e SERVICE=$service -e TAG=$tag -e REGISTRY_USER=$registryUser -e REGISTRY_PASS=$registryPass -v $volume:/src -w /src/${buildContext.name} -v /var/run/docker.sock:/var/run/docker.sock $image"
+        output = executeCommand(command, "/")
         println("Output: $output")
 
-        command = "docker-compose build release"
-        output = executeCommand(command, "/tmp/${buildContext.name}")
+        // Rm image
+        command = "docker rm dc-ci"
+        output = executeCommand(command)
         println("Output: $output")
 
-//        command = "docker-compose push release"
-//        output = executeCommand(command, "/tmp/${buildContext.name}")
-//        println("Output: $output")
+        // Rm volume
+        command = "docker volume rm $volume"
+        output = executeCommand(command)
+        println("Output: $output")
 
-//        command = "git reset --hard ${buildContext.commitId}"
-//        output = executeCommand(command)
-//        println("Output: $output")
+        // TODO: Record end of build
 
-//        return executeCommand("docker run -d -t alpine ls")
         return output
-        TODO("git clone")
-        TODO("docker login")
-        TODO("docker compose run test")
-        TODO("docker compose build release")
-        TODO("docker compose push release")
         // TODO: Version 2.0
         // register builds... with environment variables
         // http basic auth... single user
@@ -130,7 +143,7 @@ class ProcessCiRequest() {
     }
 }
 
-private fun executeCommand(command: String, directory: String): String {
+private fun executeCommand(command: String, directory: String = "/tmp"): String {
     println("Command: $command")
     val output = StringBuffer()
     try {
@@ -141,6 +154,7 @@ private fun executeCommand(command: String, directory: String): String {
         val exit = p.waitFor()
         println("Exit: $exit")
         val reader = BufferedReader(InputStreamReader(p.inputStream))
+// TODO: Store build lines in a table with fk build... or somewhere else and concatenate into a blob and store that on the build
         var line = reader.readLine()
         while (line != null) {
             output.append(line + "\n")
