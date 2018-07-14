@@ -98,7 +98,7 @@ class ProcessCiRequest {
         executeCommand("docker run --name ci-server-git-reset-$processId -t --rm -v $volume:/git alpine/git reset --hard ${buildContext.commitId}")
 
         // Mv .env.dist .env
-        executeCommand("docker run --name ci-server-mv.env-$processId -t --rm -v $volume:/src alpine mv .env.dist .env") // TODO: if not .env and .env.dist or .env.sample or .env.example
+        executeCommand("docker run --name ci-server-mv.env-$processId -t --rm -v $volume:/src -w /src alpine mv .env.dist .env") // TODO: if not .env and .env.dist or .env.sample or .env.example
 
         // Run our image on it
         val image = "tons/dc-ci"
@@ -111,7 +111,7 @@ class ProcessCiRequest {
         val registryUser = "tons"
         val registryPass = "skummet"
         // TODO: Convert to docker compose...
-        val command = "docker run --rm -t --name ci-server-worker-$processId -e SERVICE=$service -e TAG=$tag -e REGISTRY_USER=$registryUser -e REGISTRY_PASS=$registryPass -v $volume:/src -v /var/run/docker.sock:/var/run/docker.sock $image"
+        val command = "docker run --rm -t --name ci-server-worker-$processId -e SERVICE=$service -e TAG=$tag -e REGISTRY_USER=$registryUser -e REGISTRY_PASS=$registryPass -v $volume:/src -w /src -v /var/run/docker.sock:/var/run/docker.sock $image"
         executeCommand(command)
 
         // Rm volume
