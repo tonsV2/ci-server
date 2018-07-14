@@ -91,6 +91,9 @@ class ProcessCiRequest {
         // Clone repo
         executeCommand("docker run --name ci-server-git-clone-$processId -t --rm -v $volume:/git alpine/git clone ${buildContext.repository}")
 
+        // Git branch checkout
+        executeCommand("docker run --name ci-server-git-clone-$processId -t --rm -v $volume:/git alpine/git checkout ${buildContext.ref.removePrefix("refs/heads/")}")
+
         // Git reset
         executeCommand("docker run --name ci-server-git-reset-$processId -t --rm -v $volume:/git -w /git/${buildContext.name} alpine/git reset --hard ${buildContext.commitId}")
 
