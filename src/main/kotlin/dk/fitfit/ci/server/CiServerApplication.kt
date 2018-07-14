@@ -101,10 +101,9 @@ class ProcessCiRequest {
         val image = "tons/dc-ci"
         val service = "release"
         val tag: String
-        tag = if (buildContext.ref == "refs/heads/master") {
-            "latest"
-        } else {
-            buildContext.ref.removePrefix("refs/heads/").replace("/", "_")
+        tag = when {
+            buildContext.ref == "refs/heads/master" -> "latest"
+            else -> buildContext.ref.removePrefix("refs/heads/").replace("/", "_")
         }
         val registryUser = "tons"
         val registryPass = "skummet"
