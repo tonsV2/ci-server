@@ -22,6 +22,8 @@ fun main(args: Array<String>) {
 class HookController {
     @PostMapping("/github")
     fun github(@RequestBody payload: LinkedHashMap<String, *>) {
+        val ref = payload["ref"].toString()
+
         val repository = payload["repository"]
         var name = ""
         if (repository is LinkedHashMap<*, *>) {
@@ -62,7 +64,7 @@ class HookController {
 //What to build: Service
 //Tag...
 //artifact storage... user, pass, host
-class BuildContext(val name: String, val repository: String, val commitId: String)
+class BuildContext(val name: String, val repository: String, val commitId: String, val ref: String)
 
 @RestController
 class BuildController {
@@ -98,7 +100,7 @@ class ProcessCiRequest {
         // Run our image on it
         val image = "tons/dc-ci"
         val service = "release"
-        val tag = "ci-server-3"
+        val tag = buildContext.ref.removePrefix("refs/heads/")
         val registryUser = "tons"
         val registryPass = "skummet"
         // TODO: Convert to docker compose...
