@@ -103,6 +103,7 @@ class ProcessCiRequest {
         output = executeCommand(command)
         println("Output: $output")
 
+        // Git reset
         command = "docker run -t --rm -v $volume:/git -w /git/${buildContext.name} alpine/git reset --hard ${buildContext.commitId}"
         output = executeCommand(command)
         println("Output: $output")
@@ -118,6 +119,7 @@ class ProcessCiRequest {
         val tag = "ci-server-3"
         val registryUser = "tons"
         val registryPass = "skummet"
+        // TODO: Convert to docker compose...
         command = "docker run --name dc-ci -i -e DEBUG_PORT=666 -e SERVICE=$service -e TAG=$tag -e REGISTRY_USER=$registryUser -e REGISTRY_PASS=$registryPass -v $volume:/src -w /src/${buildContext.name} -v /var/run/docker.sock:/var/run/docker.sock $image"
         output = executeCommand(command, "/")
         println("Output: $output")
