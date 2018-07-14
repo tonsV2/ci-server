@@ -96,13 +96,13 @@ class ProcessCiRequest {
         executeCommand("docker volume create --name=$volume")
 
         // Clone repo
-        executeCommand("docker run -t --rm -v $volume:/git alpine/git clone ${buildContext.repository}")
+        executeCommand("docker run --name ci-server-git-clone-$volume -t --rm -v $volume:/git alpine/git clone ${buildContext.repository}")
 
         // Git reset
-        executeCommand("docker run -t --rm -v $volume:/git -w /git/${buildContext.name} alpine/git reset --hard ${buildContext.commitId}")
+        executeCommand("docker run --name ci-server-git-reset-$volume -t --rm -v $volume:/git -w /git/${buildContext.name} alpine/git reset --hard ${buildContext.commitId}")
 
         // Mv .env.dist .env
-        executeCommand("docker run -t --rm -v $volume:/src -w /src/${buildContext.name} alpine mv .env.dist .env") // TODO: if not .env and .env.dist or .env.sample or .env.example
+        executeCommand("docker run --name ci-server-mv.env-$volume -t --rm -v $volume:/src -w /src/${buildContext.name} alpine mv .env.dist .env") // TODO: if not .env and .env.dist or .env.sample or .env.example
 
         // Run our image on it
         val image = "tons/dc-ci"
@@ -111,7 +111,7 @@ class ProcessCiRequest {
         val registryUser = "tons"
         val registryPass = "skummet"
         // TODO: Convert to docker compose...
-        val command = "docker run --rm -t -e DEBUG_PORT=666 -e SERVICE=$service -e TAG=$tag -e REGISTRY_USER=$registryUser -e REGISTRY_PASS=$registryPass -v $volume:/src -w /src/${buildContext.name} -v /var/run/docker.sock:/var/run/docker.sock $image"
+        val command = "docker run --name ci-server-worker-$volume --rm -t -e DEBUG_PORT=666 -e SERVICE=$service -e TAG=$tag -e REGISTRY_USER=$registryUser -e REGISTRY_PASS=$registryPass -v $volume:/src -w /src/${buildContext.name} -v /var/run/docker.sock:/var/run/docker.sock $image"
         executeCommand(command)
 
         // Rm volume
@@ -145,4 +145,5 @@ private fun executeCommand(command: String, directory: String = "/tmp") {
     } catch (e: Exception) {
         e.printStackTrace()
     }
+    println("Command: Done!")
 }
