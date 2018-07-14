@@ -84,18 +84,18 @@ class BuildController {
 class ProcessCiRequest {
     fun build(buildContext: BuildContext) {
         // Create volume
-        val volumePostfix = UUID.randomUUID().toString()
-        val volume = "ci-server-build-$volumePostfix"
+        val processId = UUID.randomUUID().toString()
+        val volume = "ci-server-build-$processId"
         executeCommand("docker volume create --name=$volume")
 
         // Clone repo
-        executeCommand("docker run --name ci-server-git-clone-$volume -t --rm -v $volume:/git alpine/git clone ${buildContext.repository}")
+        executeCommand("docker run --name ci-server-git-clone-$processId -t --rm -v $volume:/git alpine/git clone ${buildContext.repository}")
 
         // Git reset
-        executeCommand("docker run --name ci-server-git-reset-$volume -t --rm -v $volume:/git -w /git/${buildContext.name} alpine/git reset --hard ${buildContext.commitId}")
+        executeCommand("docker run --name ci-server-git-reset-$processId -t --rm -v $volume:/git -w /git/${buildContext.name} alpine/git reset --hard ${buildContext.commitId}")
 
         // Mv .env.dist .env
-        executeCommand("docker run --name ci-server-mv.env-$volume -t --rm -v $volume:/src -w /src/${buildContext.name} alpine mv .env.dist .env") // TODO: if not .env and .env.dist or .env.sample or .env.example
+        executeCommand("docker run --name ci-server-mv.env-$processId -t --rm -v $volume:/src -w /src/${buildContext.name} alpine mv .env.dist .env") // TODO: if not .env and .env.dist or .env.sample or .env.example
 
         // Run our image on it
         val image = "tons/dc-ci"
@@ -104,15 +104,7 @@ class ProcessCiRequest {
         val registryUser = "tons"
         val registryPass = "skummet"
         // TODO: Convert to docker compose...
-        val command = """docker run --rm -t
-            | --name ci-server-worker-$volume
-            | -e SERVICE=$service
-            | -e TAG=$tag
-            | -e REGISTRY_USER=$registryUser
-            | -e REGISTRY_PASS=$registryPass
-            | -v $volume:/src
-            | -w /src/${buildContext.name}
-            | -v /var/run/docker.sock:/var/run/docker.sock $image""".trimMargin()
+        val command = "docker run --rm -t --name ci-server-worker-$processId -e SERVICE=$service -e TAG=$tag -e REGISTRY_USER=$registryUser -e REGISTRY_PASS=$registryPass -v $volume:/src -w /src/${buildContext.name} -v /var/run/docker.sock:/var/run/docker.sock $image"
         executeCommand(command)
 
         // Rm volume
@@ -120,31 +112,28 @@ class ProcessCiRequest {
 
         // TODO: Record end of build
         // TODO: Version 2.0
-        // register builds... with environment variables
         // http basic auth... single user
-        // Run this in a openjdk:alpine image with apk add docker
-        // Run a thread? with each build and stream the output somewhere
     }
-}
 
-private fun executeCommand(command: String, directory: String = "/tmp") {
-    println("Command: $command")
-    try {
-        val pb = ProcessBuilder(command.split(" "))
-        pb.directory(File(directory))
-        pb.redirectErrorStream(true)
-        val p = pb.start()
-        val exit = p.waitFor()
-        println("Exit: $exit")
-        val reader = BufferedReader(InputStreamReader(p.inputStream))
+    private fun executeCommand(command: String, directory: String = "/tmp") {
+        println("Command: $command")
+        try {
+            val pb = ProcessBuilder(command.split(" "))
+            pb.directory(File(directory))
+            pb.redirectErrorStream(true)
+            val p = pb.start()
+            val exit = p.waitFor()
+            println("Exit: $exit")
+            val reader = BufferedReader(InputStreamReader(p.inputStream))
 // TODO: Store build lines in a table with fk build... or somewhere else and concatenate into a blob and store that on the build
-        var line = reader.readLine()
-        while (line != null) {
-            println(line)
-            line = reader.readLine()
+            var line = reader.readLine()
+            while (line != null) {
+                println(line)
+                line = reader.readLine()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
-    } catch (e: Exception) {
-        e.printStackTrace()
+        println("Command: Done!")
     }
-    println("Command: Done!")
 }
