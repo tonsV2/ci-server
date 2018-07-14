@@ -25,33 +25,24 @@ class HookController {
         val repository = payload["repository"]
         var name = ""
         if (repository is LinkedHashMap<*, *>) {
-            val raw = repository.get("name")
-            if (raw is String) {
-                name = raw
-            }
+            name = repository.get("name").toString()
         }
 
         var cloneUrl = ""
         if (repository is LinkedHashMap<*, *>) {
-            val raw = repository.get("clone_url")
-            if (raw is String) {
-                cloneUrl = raw
-            }
+            cloneUrl = repository.get("clone_url").toString()
         }
 
         val headCommit = payload["head_commit"]
         var id = ""
         if (headCommit is LinkedHashMap<*, *>) {
-            val raw = headCommit.get("id")
-            if (raw is String) {
-                id = raw
-            }
+            id = headCommit.get("id").toString()
         }
 
         thread {
             // TODO: Create build... store timestamp and payload
             // Load context by... repo and branch? and associate with build
-            val buildContext = BuildContext(name, cloneUrl, id)
+            val buildContext = BuildContext(name, cloneUrl, id, ref)
             val processor = ProcessCiRequest()
             processor.build(buildContext)
         }
