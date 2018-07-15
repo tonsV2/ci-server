@@ -17,9 +17,12 @@ fun main(args: Array<String>) {
     runApplication<CiServerApplication>(*args)
 }
 
+// TODO: Version 2.0
+// http basic auth... single user
+
 @RestController
 @RequestMapping("/hooks")
-class HookController {
+class HookController(private val buildService: BuildService) {
     @PostMapping("/github")
     fun github(@RequestBody payload: LinkedHashMap<String, *>) {
         val ref = payload["ref"].toString()
@@ -31,17 +34,16 @@ class HookController {
         }
 
         val headCommit = payload["head_commit"]
-        var id = ""
+        var commitId = ""
         if (headCommit is LinkedHashMap<*, *>) {
-            id = headCommit.get("id").toString()
+            commitId = headCommit.get("id").toString()
         }
 
+        val build = buildService.getBuild(cloneUrl, ref)
         thread {
-            // TODO: Create build... store timestamp and payload
-            // Load context by... repo and branch? and associate with build
-            val buildContext = BuildContext(cloneUrl, id, ref)
-            val processor = ProcessCiRequest()
-            processor.build(buildContext)
+            build.commitId = commitId
+            build.payload = payload
+            buildService.build(build)
         }
     }
 
@@ -53,20 +55,9 @@ class HookController {
     }
 }
 
-// ** Build context...
-//source... git... user/pass... ssh
-//condition... any valid jsonpath? Could possible point to a branch
-//What to build: Service
-//Tag...
-//artifact storage... user, pass, host
-class BuildContext(val repository: String, val commitId: String, val ref: String) {
-    val branch: String
-        get() = ref.removePrefix("refs/heads/")
-}
-
 @RestController
 class BuildController {
-    @GetMapping("/builds/{id}}")
+    @GetMapping("/builds/{id}")
     fun build(@PathVariable id: String) {
         TODO("Return build details")
     }
@@ -74,71 +65,5 @@ class BuildController {
     @GetMapping("/builds")
     fun builds(): String {
         TODO("Return list of builds")
-    }
-}
-
-// TODO: Should be ProcessService and the build method should take a build object rather context
-// TODO: Run all of this in a thread
-class ProcessCiRequest {
-    fun build(buildContext: BuildContext) {
-        // Create volume
-        val processId = UUID.randomUUID().toString()
-        val volume = "ci-server-build-$processId"
-        executeCommand("docker volume create --name=$volume")
-
-        // Clone repo
-        executeCommand("docker run --name ci-server-git-clone-$processId -t --rm -v $volume:/git alpine/git clone ${buildContext.repository} .")
-
-        // Git branch checkout
-        executeCommand("docker run --name ci-server-git-clone-$processId -t --rm -v $volume:/git alpine/git checkout ${buildContext.branch}")
-
-        // Git reset
-        executeCommand("docker run --name ci-server-git-reset-$processId -t --rm -v $volume:/git alpine/git reset --hard ${buildContext.commitId}")
-
-        // Mv .env.dist .env
-        executeCommand("docker run --name ci-server-mv.env-$processId -t --rm -v $volume:/src -w /src alpine mv .env.dist .env") // TODO: if not .env and .env.dist or .env.sample or .env.example
-
-        // Run our image on it
-        val image = "tons/dc-ci"
-        val service = "release"
-        val tag: String
-        tag = when {
-            buildContext.branch == "master" -> "latest"
-            else -> buildContext.branch.replace("/", "_")
-        }
-        val registryUser = "tons"
-        val registryPass = "skummet"
-        // TODO: Convert to docker compose...
-        val command = "docker run --rm -t --name ci-server-worker-$processId -e SERVICE=$service -e TAG=$tag -e REGISTRY_USER=$registryUser -e REGISTRY_PASS=$registryPass -v $volume:/src -w /src -v /var/run/docker.sock:/var/run/docker.sock $image"
-        executeCommand(command)
-
-        // Rm volume
-        executeCommand("docker volume rm $volume")
-
-        // TODO: Record end of build
-        // TODO: Version 2.0
-        // http basic auth... single user
-    }
-
-    private fun executeCommand(command: String, directory: String = "/tmp") {
-        println("Command: $command")
-        try {
-            val pb = ProcessBuilder(command.split(" "))
-            pb.directory(File(directory))
-            pb.redirectErrorStream(true)
-            val p = pb.start()
-            val exit = p.waitFor()
-            println("Exit: $exit")
-            val reader = BufferedReader(InputStreamReader(p.inputStream))
-// TODO: Store build lines in a table with fk build... or somewhere else and concatenate into a blob and store that on the build
-            var line = reader.readLine()
-            while (line != null) {
-                println(line)
-                line = reader.readLine()
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-        println("Command: Done!")
     }
 }
