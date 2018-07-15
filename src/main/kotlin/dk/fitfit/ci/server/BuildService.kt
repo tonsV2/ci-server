@@ -81,8 +81,8 @@ class BuildServiceImpl(private val buildContextService: BuildContextService) : B
             pb.directory(File(directory))
             pb.redirectErrorStream(true)
             val p = pb.start()
-            val exit = p.waitFor()
-            println("Exit: $exit")
+            cmd.exit = p.waitFor()
+            println("Exit: ${cmd.exit}") // TODO: Logs this to cmd.lines.add(BuildLine(...))
             val reader = BufferedReader(InputStreamReader(p.inputStream))
             var line = reader.readLine()
             while (line != null) {
@@ -109,7 +109,7 @@ class Build(val id: String = UUID.randomUUID().toString(),
             val commands: MutableList<BuildCommand> = mutableListOf()
 )
 
-class BuildCommand(val command: String, val lines: MutableList<BuildLine> = mutableListOf()) {
+class BuildCommand(val command: String, var exit: Int = -1, val lines: MutableList<BuildLine> = mutableListOf()) {
     val log: String
         get() = lines.joinToString {
             "${it.line}\n"
