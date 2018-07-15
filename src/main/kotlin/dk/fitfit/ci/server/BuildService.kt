@@ -55,8 +55,8 @@ class BuildServiceImpl(private val buildContextService: BuildContextService) : B
         }
         val registryUser = build.context.registryUser
         val registryPass = build.context.registryPass
-        // TODO: Convert to docker compose...
-        val command = "docker run --rm -t --name ci-server-worker-${build.id} -e SERVICE=$service -e TAG=$tag -e REGISTRY_USER=$registryUser -e REGISTRY_PASS=$registryPass -v $volume:/src -w /src -v /var/run/docker.sock:/var/run/docker.sock $image"
+        // TODO: Convert to docker compose... And somehow make more generic /src is hardcoded
+        val command = "docker run --rm -t --name ci-server-worker-${build.id} -e SERVICE=$service -e TAG=$tag -e REGISTRY_USER=$registryUser -e REGISTRY_PASS=$registryPass -v $volume:/src -v /var/run/docker.sock:/var/run/docker.sock $image"
         executeCommand(command, build)
         save(build)
 
