@@ -7,14 +7,13 @@ import java.io.InputStreamReader
 import java.time.LocalDateTime
 import java.util.*
 
-// TODO: Let buildService use buildContextService....
-
 interface BuildService {
     fun getBuild(cloneUrl: String, ref: String): Build
     fun build(build: Build): Build
     fun save(build: Build): Build
 }
 
+// TODO: Parent class with build abstract method? Make another implementation which uses rabbit or something to queue the build off to one or more workers. The worker will use the same code as this class... How to avoid DRY
 @Service
 class BuildServiceImpl(private val buildContextService: BuildContextService) : BuildService {
     // TODO: Return build with populated id
