@@ -35,7 +35,7 @@ class BuildServiceImpl(private val buildContextService: BuildContextService) : B
         save(build)
 
         // Git branch checkout
-        executeCommand("docker run --name ci-server-git-clone-${build.id} -t --rm -v $volume:/git alpine/git checkout ${build.context.branch}", build)
+        executeCommand("docker run --name ci-server-git-checkout-${build.id} -t --rm -v $volume:/git alpine/git checkout ${build.context.branch}", build)
         save(build)
 
         // Git reset
