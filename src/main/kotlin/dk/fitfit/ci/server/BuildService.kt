@@ -72,7 +72,7 @@ class BuildServiceImpl(private val buildContextService: BuildContextService) : B
         val cmd = BuildCommand(command)
         build.commands.add(cmd)
 
-        val commandLog = "Command: $command"
+        val commandLog = "Command: $command".replace(build.context.registryUser, "****").replace(build.context.registryPass, "****")
         cmd.lines.add(BuildLine(commandLog))
         println(commandLog)
         try {
