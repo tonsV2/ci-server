@@ -1,5 +1,7 @@
 package dk.fitfit.ci.server
 
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Service
 
 interface BuildContextService {
@@ -7,14 +9,15 @@ interface BuildContextService {
 }
 
 @Service
-class BuildContextServiceImpl : BuildContextService {
+@Configuration
+class BuildContextServiceImpl(@Value("\${ci-server.registry.user}") private val registryUser: String, @Value("\${ci-server.registry.pass}") private val registryPass: String, @Value("\${ci-server.registry.host}") private val host: String) : BuildContextService {
     override fun getBuildContext(cloneUrl: String, ref: String): BuildContext {
         // TODO: Search for build context in db... If no context... Create one?
         val buildContext = BuildContext()
         buildContext.image = "tons/dc-ci"
         buildContext.service = "release"
-        buildContext.registryUser = "tons"
-        buildContext.registryPass = "skummet"
+        buildContext.registryUser = registryUser
+        buildContext.registryPass = registryPass
         buildContext.repository = cloneUrl
         buildContext.ref = ref
         return buildContext

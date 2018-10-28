@@ -1,0 +1,5 @@
+ci-server:
+  registry:
+    user: ${REGISTRY_USER}
+    pass: ${REGISTRY_PASS}
+    host: ${REGISTRY_HOST}
